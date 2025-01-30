@@ -10,7 +10,6 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const app = express();
 const port = process.env.PORT || 3001;
 
-
 // Baca sertifikat
 const sslCert = fs.readFileSync(path.join(__dirname, 'isrgrootx1.pem'));
 
@@ -21,6 +20,9 @@ const connection = mysql.createConnection({
     user: '1LeBgnPBg2enDXv.root',
     password: 'bZ5viB4YiopWa1vG',
     database: 'parkingsistem',
+    waitForConnections: true,
+    connectionLimit: 10, 
+    queueLimit: 0,
     ssl: {
         ca: sslCert // Menambahkan sertifikat CA
     }

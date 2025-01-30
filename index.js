@@ -490,5 +490,4 @@ app.get("/", (req, res) => {
     res.send("Hello from Express on Vercel!");
 });
 
-// Export app untuk digunakan di serverless function
-module.exports = app;
+app.listen(port, () => console.log(`Listening to port ${port} (http://localhost:${port})`));

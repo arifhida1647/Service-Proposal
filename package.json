@@ -1,7 +1,7 @@
 {
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.65",
     "axios": "^1.7.7",
-    "canvas": "^2.11.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jimp": "^1.6.0",

@@ -3,11 +3,13 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-const app = express();
-const port = process.env.PORT || 3001;
 const fs = require('fs');
 const axios = require('axios');
-const { createCanvas, loadImage } = require("canvas"); // Add canvas library
+const { createCanvas, loadImage } = require("canvas");
+
+const app = express();
+const port = process.env.PORT || 3001;
+
 
 // Baca sertifikat
 const sslCert = fs.readFileSync(path.join(__dirname, 'isrgrootx1.pem'));
@@ -23,7 +25,7 @@ const connection = mysql.createConnection({
         ca: sslCert // Menambahkan sertifikat CA
     }
 });
-    
+
 // Koneksikan ke database
 connection.connect((err) => {
     if (err) {
@@ -483,7 +485,10 @@ app.post('/update-status-iot-s1', (req, res) => {
 
 
 
-// Mulai server
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+// Mulai server// Contoh endpoint
+app.get("/", (req, res) => {
+    res.send("Hello from Express on Vercel!");
 });
+
+// Export app untuk digunakan di serverless function
+module.exports = app;

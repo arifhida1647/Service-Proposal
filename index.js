@@ -4,20 +4,26 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 const fs = require('fs');
 const axios = require('axios');
 const { createCanvas, loadImage } = require("canvas"); // Add canvas library
 
-// Konfigurasi database
-const connection = mysql.createConnection({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: '',
-    database: 'parkingsistem'
-});
+// Baca sertifikat
+const sslCert = fs.readFileSync(path.join(__dirname, 'isrgrootx1.pem'));
 
+// Konfigurasi database dengan SSL
+const connection = mysql.createConnection({
+    host: 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
+    port: 4000,
+    user: '1LeBgnPBg2enDXv.root',
+    password: 'bZ5viB4YiopWa1vG',
+    database: 'parkingsistem',
+    ssl: {
+        ca: sslCert // Menambahkan sertifikat CA
+    }
+});
+    
 // Koneksikan ke database
 connection.connect((err) => {
     if (err) {

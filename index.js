@@ -402,91 +402,82 @@ app.get('/compare-status', (req, res) => {
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s3', (req, res) => {
+app.post('/update-status-iot-s3', async (req, res) => {
     const { statusArray } = req.body;
 
-    // Validasi panjang array
-    if (!Array.isArray(statusArray) || statusArray.length !== 17) {
+    // Validasi data
+    if (!Array.isArray(statusArray)) {
+        return res.status(400).json({ error: 'Data harus berupa array.' });
+    }
+
+    if (statusArray.length !== 17) {
         return res.status(400).json({ error: 'Array harus memiliki panjang 17.' });
     }
 
-    // Validasi isi array hanya boleh 1 dan 0
-    // Validasi isi array hanya boleh 1 dan 0
-    for (let i = 0; i < statusArray.length; i++) {
-        if (statusArray[i] !== 1 && statusArray[i] !== 0 && statusArray[i] !== 2) {
-            return res.status(400).json({ error: 'Array tidak sesuai.' });
-        }
+    const isValid = statusArray.every(value => value === 0 || value === 1 || value === 2);
+    if (!isValid) {
+        return res.status(400).json({ error: 'Array tidak valid.' });
     }
 
-    // Update status secara berurutan berdasarkan id
-    const updatePromises = statusArray.map((status, index) => {
-        const id = index + 1; // Misalkan id mulai dari 1 sampai 17
-        return new Promise((resolve, reject) => {
-            const query = 'UPDATE iot SET status = ? WHERE id = ?';
-            connection.query(query, [status, id], (err, results) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results);
-                }
-            });
-        });
+    // Bangun query bulk update
+    let updateQuery = 'UPDATE iot SET status = CASE id ';
+    statusArray.forEach((status, index) => {
+        const id = index + 1; // ID dimulai dari 1
+        updateQuery += `WHEN ${id} THEN ${status} `;
     });
+    updateQuery += 'END WHERE id IN (';
+    updateQuery += statusArray.map((_, index) => index + 1).join(', ');
+    updateQuery += ');';
 
-    // Eksekusi semua update
-    Promise.all(updatePromises)
-        .then(() => {
-            res.status(200).json({ message: 'Status berhasil diperbarui.' });
-        })
-        .catch((error) => {
-            console.error('Error updating status:', error);
-            res.status(500).json({ error: 'Terjadi kesalahan saat memperbarui status.' });
-        });
+    // Eksekusi query
+    connection.query(updateQuery, (err, results) => {
+        if (err) {
+            console.error('Error updating status:', err);
+            return res.status(500).json({ error: 'Terjadi kesalahan saat memperbarui status.' });
+        }
+
+        res.status(200).json({ message: 'Status berhasil diperbarui.' });
+    });
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s1', (req, res) => {
+app.post('/update-status-iot-s1', async (req, res) => {
     const { statusArray } = req.body;
 
-    // Validasi panjang array
-    if (!Array.isArray(statusArray) || statusArray.length !== 3) {
+    // Validasi data
+    if (!Array.isArray(statusArray)) {
+        return res.status(400).json({ error: 'Data harus berupa array.' });
+    }
+
+    if (statusArray.length !== 3) {
         return res.status(400).json({ error: 'Array harus memiliki panjang 3.' });
     }
 
-    // Validasi isi array hanya boleh 1 dan 0
-    for (let i = 0; i < statusArray.length; i++) {
-        if (statusArray[i] !== 1 && statusArray[i] !== 0 && statusArray[i] !== 2) {
-            return res.status(400).json({ error: 'Array tidak sesuai.' });
-        }
+    const isValid = statusArray.every(value => value === 0 || value === 1 || value === 2);
+    if (!isValid) {
+        return res.status(400).json({ error: 'Array tidak valid.' });
     }
 
-    // Update status secara berurutan berdasarkan id mulai dari 18
-    const updatePromises = statusArray.map((status, index) => {
-        const id = index + 18; // ID mulai dari 18 sampai 20
-        return new Promise((resolve, reject) => {
-            const query = 'UPDATE iot SET status = ? WHERE id = ?';
-            connection.query(query, [status, id], (err, results) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results);
-                }
-            });
-        });
+    // Bangun query bulk update
+    let updateQuery = 'UPDATE iot SET status = CASE id ';
+    statusArray.forEach((status, index) => {
+        const id = index + 18; // ID dimulai dari 18
+        updateQuery += `WHEN ${id} THEN ${status} `;
     });
+    updateQuery += 'END WHERE id IN (';
+    updateQuery += statusArray.map((_, index) => index + 18).join(', ');
+    updateQuery += ');';
 
-    // Eksekusi semua update
-    Promise.all(updatePromises)
-        .then(() => {
-            res.status(200).json({ message: 'Status berhasil diperbarui.' });
-        })
-        .catch((error) => {
-            console.error('Error updating status:', error);
-            res.status(500).json({ error: 'Terjadi kesalahan saat memperbarui status.' });
-        });
+    // Eksekusi query
+    connection.query(updateQuery, (err, results) => {
+        if (err) {
+            console.error('Error updating status:', err);
+            return res.status(500).json({ error: 'Terjadi kesalahan saat memperbarui status.' });
+        }
+
+        res.status(200).json({ message: 'Status berhasil diperbarui.' });
+    });
 });
-
-
 
 // Mulai server// Contoh endpoint
 app.get("/", (req, res) => {

@@ -21,7 +21,7 @@ const connection = mysql.createConnection({
     password: 'bZ5viB4YiopWa1vG',
     database: 'parkingsistem',
     waitForConnections: true,
-    connectionLimit: 10, 
+    connectionLimit: 10,
     queueLimit: 0,
     ssl: {
         ca: sslCert // Menambahkan sertifikat CA
@@ -411,9 +411,10 @@ app.post('/update-status-iot-s3', (req, res) => {
     }
 
     // Validasi isi array hanya boleh 1 dan 0
+    // Validasi isi array hanya boleh 1 dan 0
     for (let i = 0; i < statusArray.length; i++) {
-        if (statusArray[i] !== 1 && statusArray[i] !== 0) {
-            return res.status(400).json({ error: 'Array hanya boleh berisi 1 dan 0.' });
+        if (statusArray[i] !== 1 && statusArray[i] !== 0 && statusArray[i] !== 2) {
+            return res.status(400).json({ error: 'Array tidak sesuai.' });
         }
     }
 
@@ -454,8 +455,8 @@ app.post('/update-status-iot-s1', (req, res) => {
 
     // Validasi isi array hanya boleh 1 dan 0
     for (let i = 0; i < statusArray.length; i++) {
-        if (statusArray[i] !== 1 && statusArray[i] !== 0) {
-            return res.status(400).json({ error: 'Array hanya boleh berisi 1 dan 0.' });
+        if (statusArray[i] !== 1 && statusArray[i] !== 0 && statusArray[i] !== 2) {
+            return res.status(400).json({ error: 'Array tidak sesuai.' });
         }
     }
 

@@ -216,7 +216,44 @@ app.post('/update-status-iot-s1', async (req, res) => {
         res.status(200).json({ message: 'Status berhasil diperbarui.' });
     });
 });
+// Endpoint untuk memperbarui status
+app.post('/update-status-cam', async (req, res) => {
+    const { statusArray } = req.body;
 
+    // Validasi data
+    if (!Array.isArray(statusArray)) {
+        return res.status(400).json({ error: 'Data harus berupa array.' });
+    }
+
+    if (statusArray.length !== 20) {
+        return res.status(400).json({ error: 'Array harus memiliki panjang 17.' });
+    }
+
+    const isValid = statusArray.every(value => value === 0 || value === 1 || value === 2);
+    if (!isValid) {
+        return res.status(400).json({ error: 'Array tidak valid.' });
+    }
+
+    // Bangun query bulk update
+    let updateQuery = 'UPDATE cam SET status = CASE id ';
+    statusArray.forEach((status, index) => {
+        const id = index + 1; // ID dimulai dari 1
+        updateQuery += `WHEN ${id} THEN ${status} `;
+    });
+    updateQuery += 'END WHERE id IN (';
+    updateQuery += statusArray.map((_, index) => index + 1).join(', ');
+    updateQuery += ');';
+
+    // Eksekusi query
+    connection.query(updateQuery, (err, results) => {
+        if (err) {
+            console.error('Error updating status:', err);
+            return res.status(500).json({ error: 'Terjadi kesalahan saat memperbarui status.' });
+        }
+
+        res.status(200).json({ message: 'Status berhasil diperbarui.' });
+    });
+});
 // Mulai server// Contoh endpoint
 app.get("/", (req, res) => {
     res.send("Hello from Express on Vercel!");

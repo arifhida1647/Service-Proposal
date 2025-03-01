@@ -119,7 +119,7 @@ app.get('/cam/:id', authenticateToken, (req, res) => {
     });
 });
 
-app.get('/compare-status', (req, res) => {
+app.get('/compare-status', authenticateToken, (req, res) => {
     const query = `
         SELECT iot.id AS iot_id, cam.id AS cam_id, iot.status AS iot_status, cam.status AS cam_status
         FROM iot

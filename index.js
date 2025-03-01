@@ -3,6 +3,8 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config(); // Load dotenv
+
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -40,10 +42,20 @@ app.use('/storage', express.static(path.join(__dirname, 'storage')));
 // Middleware
 app.use(express.json());
 
+const STATIC_BEARER_TOKEN = process.env.BEARER_TOKEN; // Ambil token dari .env
+// Middleware untuk validasi Bearer Token
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ message: "Unauthorized" });
 
+    const token = authHeader.split(' ')[1]; // Ambil token setelah "Bearer"
+    if (token !== STATIC_BEARER_TOKEN) return res.status(403).json({ message: "Forbidden" });
+
+    next(); // Lanjut ke route berikutnya jika token valid
+};
 
 // Endpoint untuk mengambil data dari tabel "iot"
-app.get('/iot/:id', (req, res) => {
+app.get('/iot/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
     const status = req.query.status;
 
@@ -75,7 +87,7 @@ app.get('/iot/:id', (req, res) => {
     });
 });
 
-app.get('/cam/:id', (req, res) => {
+app.get('/cam/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
     const status = req.query.status;
 
@@ -140,7 +152,7 @@ app.get('/compare-status', (req, res) => {
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s3', async (req, res) => {
+app.post('/update-status-iot-s3',  authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data
@@ -179,7 +191,7 @@ app.post('/update-status-iot-s3', async (req, res) => {
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s1', async (req, res) => {
+app.post('/update-status-iot-s1',  authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data
@@ -217,7 +229,7 @@ app.post('/update-status-iot-s1', async (req, res) => {
     });
 });
 // Endpoint untuk memperbarui status
-app.post('/update-status-cam', async (req, res) => {
+app.post('/update-status-cam',  authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data

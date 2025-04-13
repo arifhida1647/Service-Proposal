@@ -3,6 +3,7 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const connection = require('./lib/db');
 require('dotenv').config(); // Load dotenv
 
 
@@ -13,20 +14,6 @@ const port = process.env.PORT || 3001;
 const sslCert = fs.readFileSync(path.join(__dirname, 'isrgrootx1.pem'));
 
 // Konfigurasi database dengan SSL
-const connection = mysql.createConnection({
-    host: 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
-    port: 4000,
-    user: '1LeBgnPBg2enDXv.root',
-    password: 'bZ5viB4YiopWa1vG',
-    database: 'parkingsistem',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: {
-        ca: sslCert // Menambahkan sertifikat CA
-    }
-});
-
 // Koneksikan ke database
 connection.connect((err) => {
     if (err) {

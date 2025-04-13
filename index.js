@@ -54,6 +54,137 @@ const authenticateToken = (req, res, next) => {
     next(); // Lanjut ke route berikutnya jika token valid
 };
 
+function compareIotAndCam() {
+    const queryIot = `SELECT id, status FROM iot`;
+    const queryCam = `SELECT id, status FROM cam`;
+
+    connection.query(queryIot, (err, iotResults) => {
+        if (err) return console.error('Gagal ambil data iot:', err);
+
+        connection.query(queryCam, (err2, camResults) => {
+            if (err2) return console.error('Gagal ambil data cam:', err2);
+
+            iotResults.forEach((iotRow) => {
+                const camRow = camResults.find((c) => c.id === iotRow.id);
+                if (!camRow) return;
+
+                let status = null;
+                let deskripsi = "";
+
+                const iot = iotRow.status;
+                const cam = camRow.status;
+
+                // Logika komparasi
+                if (iot === 0 && cam === 1) {
+                    status = 1;
+                    deskripsi = "camera check";
+                } else if (iot === 1 && cam === 0) {
+                    status = 0;
+                    deskripsi = "camera not check dan iot not check";
+                } else if (iot === 0 && cam === 0) {
+                    status = 0;
+                    deskripsi = "camera not check dan iot not check";
+                } else if (iot === 1 && cam === 1) {
+                    status = 1;
+                    deskripsi = "camera check dan iot check";
+                } else if (iot === 2 && cam === 0) {
+                    status = 0;
+                    deskripsi = "iot not connected dan camera not check";
+                } else if (iot === 2 && cam === 1) {
+                    status = 1;
+                    deskripsi = "iot not connected dan camera check";
+                } else if (iot === 2 && cam === 2) {
+                    status = 2;
+                    deskripsi = "iot not connected dan camera not connected";
+                } else if (iot === 0 && cam === 2) {
+                    status = 0;
+                    deskripsi = "cam not connected dan iot not check";
+                } else if (iot === 1 && cam === 2) {
+                    status = 1;
+                    deskripsi = "cam not connected dan iot check";
+                }
+
+                // Simpan hanya jika semua nilai valid
+                if (status !== null && deskripsi) {
+                    const escapedDeskripsi = connection.escape(deskripsi);
+                    const insertQuery = `
+                        INSERT INTO komparasi (id, slot, status, deskripsi, updated_at)
+                        VALUES (${iotRow.id}, ${iotRow.id}, ${status}, ${escapedDeskripsi}, NOW())
+                        ON DUPLICATE KEY UPDATE 
+                            status = VALUES(status),
+                            deskripsi = VALUES(deskripsi),
+                            updated_at = NOW()
+                    `;
+
+                    connection.query(insertQuery, (err3) => {
+                        if (err3) console.error('Gagal update komparasi:', err3);
+                    });
+                } else {
+                    console.warn(`Lewati id ${iotRow.id} karena status/deskripsi tidak valid.`);
+                }
+            });
+        });
+    });
+}
+
+// Jalanin tiap 2 detik
+setInterval(compareIotAndCam, 2000);
+
+function checkAndUpdateCamStatus() {
+    const query = `SELECT updated_at FROM cam ORDER BY updated_at DESC LIMIT 1`;
+
+    connection.query(query, (err, results) => {
+        if (err) return console.error('Gagal mengambil updated_at cam:', err);
+        if (results.length === 0) return console.warn('Tidak ada data di tabel cam.');
+
+        const latestUpdatedAt = new Date(results[0].updated_at);
+        const now = new Date();
+        const diffInMinutes = (now - latestUpdatedAt) / 60000;
+
+        if (diffInMinutes > 5) {
+            const updateQuery = `UPDATE cam SET status = 2`;
+            connection.query(updateQuery, (err2) => {
+                if (err2) {
+                    console.error('Gagal update status cam ke 2:', err2);
+                } else {
+                    console.log('Status semua data di iot diupdate ke 2 karena tidak update lebih dari 5 menit.');
+                }
+            });
+        } else {
+            console.log('CAM masih aktif, tidak perlu update.');
+        }
+    });
+}
+
+setInterval(checkAndUpdateCamStatus, 5 * 60 * 1000); // 5 menit
+
+function checkAndUpdateIotStatus() {
+    const query = `SELECT updated_at FROM iot ORDER BY updated_at DESC LIMIT 1`;
+
+    connection.query(query, (err, results) => {
+        if (err) return console.error('Gagal mengambil updated_at iot:', err);
+        if (results.length === 0) return console.warn('Tidak ada data di tabel iot.');
+
+        const latestUpdatedAt = new Date(results[0].updated_at);
+        const now = new Date();
+        const diffInMinutes = (now - latestUpdatedAt) / 60000;
+
+        if (diffInMinutes > 5) {
+            const updateQuery = `UPDATE iot SET status = 2`;
+            connection.query(updateQuery, (err2) => {
+                if (err2) {
+                    console.error('Gagal update status iot ke 2:', err2);
+                } else {
+                    console.log('Status semua data di iot diupdate ke 2 karena tidak update lebih dari 5 menit.');
+                }
+            });
+        } else {
+            console.log('IOT masih aktif, tidak perlu update.');
+        }
+    });
+}
+setInterval(checkAndUpdateIotStatus,  5 * 60 * 1000); // 5 menit
+
 // Endpoint untuk mengambil data dari tabel "iot"
 app.get('/iot/:id', authenticateToken, (req, res) => {
     const id = req.params.id;
@@ -152,7 +283,7 @@ app.get('/compare-status', (req, res) => {
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s3',  authenticateToken, async (req, res) => {
+app.post('/update-status-iot-s3', authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data
@@ -191,7 +322,7 @@ app.post('/update-status-iot-s3',  authenticateToken, async (req, res) => {
 });
 
 // Endpoint untuk memperbarui status
-app.post('/update-status-iot-s1',  authenticateToken, async (req, res) => {
+app.post('/update-status-iot-s1', authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data
@@ -229,7 +360,10 @@ app.post('/update-status-iot-s1',  authenticateToken, async (req, res) => {
     });
 });
 // Endpoint untuk memperbarui status
-app.post('/update-status-cam',  authenticateToken, async (req, res) => {
+
+
+
+app.post('/update-status-cam', authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
     // Validasi data
@@ -238,7 +372,7 @@ app.post('/update-status-cam',  authenticateToken, async (req, res) => {
     }
 
     if (statusArray.length !== 20) {
-        return res.status(400).json({ error: 'Array harus memiliki panjang 17.' });
+        return res.status(400).json({ error: 'Array harus memiliki panjang 20.' });
     }
 
     const isValid = statusArray.every(value => value === 0 || value === 1 || value === 2);
@@ -270,5 +404,7 @@ app.post('/update-status-cam',  authenticateToken, async (req, res) => {
 app.get("/", (req, res) => {
     res.send("Hello from Express on Vercel!");
 });
+
+
 
 app.listen(port, () => console.log(`Listening to port ${port} (http://localhost:${port})`));

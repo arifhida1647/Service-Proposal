@@ -57,51 +57,62 @@ function compareIotAndCam() {
 
                 let status = null;
                 let deskripsi = "";
-
+                let warna = "";
                 const iot = iotRow.status;
                 const cam = camRow.status;
 
-                // Logika komparasi
-                if (iot === 0 && cam === 1) {
-                    status = 1;
-                    deskripsi = "camera check";
-                } else if (iot === 1 && cam === 0) {
+                if (cam === 0 && iot === 0) {
                     status = 0;
-                    deskripsi = "camera not check dan iot not check";
-                } else if (iot === 0 && cam === 0) {
-                    status = 0;
-                    deskripsi = "camera not check dan iot not check";
-                } else if (iot === 1 && cam === 1) {
+                    deskripsi = "available (cam & iot)";
+                    warna = "bg-green-400";
+                } else if (cam === 0 && iot === 1) {
                     status = 1;
-                    deskripsi = "camera check dan iot check";
-                } else if (iot === 2 && cam === 0) {
-                    status = 0;
-                    deskripsi = "iot not connected dan camera not check";
-                } else if (iot === 2 && cam === 1) {
-                    status = 1;
-                    deskripsi = "iot not connected dan camera check";
-                } else if (iot === 2 && cam === 2) {
+                    deskripsi = "cam available, iot not available";
+                    warna = "bg-yellow-400";
+                } else if (cam === 0 && iot === 2) {
                     status = 2;
-                    deskripsi = "iot not connected dan camera not connected";
-                } else if (iot === 0 && cam === 2) {
-                    status = 0;
-                    deskripsi = "cam not connected dan iot not check";
-                } else if (iot === 1 && cam === 2) {
-                    status = 1;
-                    deskripsi = "cam not connected dan iot check";
+                    deskripsi = "cam available, iot not connected";
+                    warna = "bg-green-400";
+                } else if (cam === 1 && iot === 0) {
+                    status = 3;
+                    deskripsi = "cam not available, iot available";
+                    warna = "bg-yellow-400";
+                } else if (cam === 1 && iot === 1) {
+                    status = 4;
+                    deskripsi = "not available (cam & iot)";
+                    warna = "bg-red-400";
+                } else if (cam === 1 && iot === 2) {
+                    status = 5;
+                    deskripsi = "cam not available, iot not connected";
+                    warna = "bg-red-400";
+                } else if (cam === 2 && iot === 0) {
+                    status = 6;
+                    deskripsi = "cam not connected, iot available";
+                    warna = "bg-green-400";
+                } else if (cam === 2 && iot === 1) {
+                    status = 7;
+                    deskripsi = "cam not connected, iot not available";
+                    warna = "bg-red-400";
+                } else if (cam === 2 && iot === 2) {
+                    status = 8;
+                    deskripsi = "cam & iot not connected";
+                    warna = "bg-gray-400";
                 }
 
+
                 // Simpan hanya jika semua nilai valid
-                if (status !== null && deskripsi) {
-                    const escapedDeskripsi = connection.escape(deskripsi);
+                if (status !== null) {
+                    const escapedDeskripsi = connection.escape(deskripsi); // string -> escape
+                    const escapedWarna = connection.escape(warna);         // string -> escape
                     const insertQuery = `
-                        INSERT INTO komparasi (id, slot, status, deskripsi, updated_at)
-                        VALUES (${iotRow.id}, ${iotRow.id}, ${status}, ${escapedDeskripsi}, NOW())
-                        ON DUPLICATE KEY UPDATE 
-                            status = VALUES(status),
-                            deskripsi = VALUES(deskripsi),
-                            updated_at = NOW()
-                    `;
+                    INSERT INTO komparasi (id, slot, status, warna, deskripsi, updated_at)
+                    VALUES (${iotRow.id}, ${iotRow.id}, ${status}, ${escapedWarna}, ${escapedDeskripsi}, NOW())
+                    ON DUPLICATE KEY UPDATE 
+                        status = VALUES(status),
+                        warna = VALUES(warna),
+                        deskripsi = VALUES(deskripsi),
+                        updated_at = NOW()
+                `;
 
                     connection.query(insertQuery, (err3) => {
                         if (err3) console.error('Gagal update komparasi:', err3);
@@ -170,7 +181,7 @@ function checkAndUpdateIotStatus() {
         }
     });
 }
-setInterval(checkAndUpdateIotStatus,  5 * 60 * 1000); // 5 menit
+setInterval(checkAndUpdateIotStatus, 5 * 60 * 1000); // 5 menit
 
 // Endpoint untuk mengambil data dari tabel "iot"
 app.get('/iot/:id', authenticateToken, (req, res) => {
@@ -238,16 +249,7 @@ app.get('/cam/:id', authenticateToken, (req, res) => {
 });
 
 app.get('/compare-status', (req, res) => {
-    const query = `
-        SELECT iot.id AS iot_id, cam.id AS cam_id, iot.status AS iot_status, cam.status AS cam_status
-        FROM iot
-        INNER JOIN cam ON iot.id = cam.id
-        WHERE 
-            (iot.status = 0 AND cam.status = 0) OR 
-            (iot.status = 1 AND cam.status = 0) OR 
-            (iot.status = 0 AND cam.status = 1) OR
-            (iot.status = 1 AND cam.status = 1)
-    `;
+    const query = `SELECT status FROM komparasi`; // ganti "komparasi" dengan nama tabel kamu
 
     connection.query(query, (err, results) => {
         if (err) {
@@ -255,19 +257,33 @@ app.get('/compare-status', (req, res) => {
             res.status(500).json({ error: 'Failed to fetch data' });
             return;
         }
-        const bothZero = results.filter(row => row.iot_status === 0 && row.cam_status === 0);
-        const oneOneOtherZero = results.filter(row => (row.iot_status === 1 && row.cam_status === 0) || (row.iot_status === 0 && row.cam_status === 1));
-        const bothOne = results.filter(row => row.iot_status === 1 && row.cam_status === 1);
+
+        let tersedia = 0;
+        let kemungkinanTersedia = 0;
+        let tidakTersedia = 0;
+
+        results.forEach(row => {
+            const status = row.status;
+
+            if ([0, 2, 6].includes(status)) {
+                tersedia++;
+            } else if ([1, 3].includes(status)) {
+                kemungkinanTersedia++;
+            } else if ([4, 5, 7, 8].includes(status)) {
+                tidakTersedia++;
+            }
+        });
 
         const data = {
-            bothZeroCount: bothZero.length,
-            oneOneOtherZeroCount: oneOneOtherZero.length,
-            bothOneCount: bothOne.length
+            tersedia,
+            kemungkinanTersedia,
+            tidakTersedia
         };
 
         res.json(data);
     });
 });
+
 
 // Endpoint untuk memperbarui status
 app.post('/update-status-iot-s3', authenticateToken, async (req, res) => {

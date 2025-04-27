@@ -42,87 +42,112 @@ const authenticateToken = (req, res, next) => {
 };
 
 function compareIotAndCam() {
+    const logBuffer = [];
+
     const queryIot = `SELECT id, status FROM iot`;
     const queryCam = `SELECT id, status FROM cam`;
 
     connection.query(queryIot, (err, iotResults) => {
-        if (err) return console.error('Gagal ambil data iot:', err);
+        if (err) {
+            logBuffer.push("Gagal ambil data iot: " + err.message);
+            return simpanLogAkhir();
+        }
 
         connection.query(queryCam, (err2, camResults) => {
-            if (err2) return console.error('Gagal ambil data cam:', err2);
+            if (err2) {
+                logBuffer.push("Gagal ambil data cam: " + err2.message);
+                return simpanLogAkhir();
+            }
 
             iotResults.forEach((iotRow) => {
                 const camRow = camResults.find((c) => c.id === iotRow.id);
-                if (!camRow) return;
+                if (!camRow) {
+                    logBuffer.push(`Slot ${iotRow.id} tidak ditemukan di cam.`);
+                    return;
+                }
 
                 let status = null;
-                let deskripsi = "";
-                let warna = "";
                 const iot = iotRow.status;
                 const cam = camRow.status;
 
-                if (cam === 0 && iot === 0) {
-                    status = 0;
-                    deskripsi = "available (cam & iot)";
-                    warna = "bg-green-400";
-                } else if (cam === 0 && iot === 1) {
-                    status = 1;
-                    deskripsi = "cam available, iot not available";
-                    warna = "bg-yellow-400";
-                } else if (cam === 0 && iot === 2) {
-                    status = 2;
-                    deskripsi = "cam available, iot not connected";
-                    warna = "bg-green-400";
-                } else if (cam === 1 && iot === 0) {
-                    status = 3;
-                    deskripsi = "cam not available, iot available";
-                    warna = "bg-yellow-400";
-                } else if (cam === 1 && iot === 1) {
-                    status = 4;
-                    deskripsi = "not available (cam & iot)";
-                    warna = "bg-red-400";
-                } else if (cam === 1 && iot === 2) {
-                    status = 5;
-                    deskripsi = "cam not available, iot not connected";
-                    warna = "bg-red-400";
-                } else if (cam === 2 && iot === 0) {
-                    status = 6;
-                    deskripsi = "cam not connected, iot available";
-                    warna = "bg-green-400";
-                } else if (cam === 2 && iot === 1) {
-                    status = 7;
-                    deskripsi = "cam not connected, iot not available";
-                    warna = "bg-red-400";
-                } else if (cam === 2 && iot === 2) {
-                    status = 8;
-                    deskripsi = "cam & iot not connected";
-                    warna = "bg-gray-400";
-                }
+                if (cam === 0 && iot === 0) status = 0;
+                else if (cam === 0 && iot === 1) status = 1;
+                else if (cam === 0 && iot === 2) status = 2;
+                else if (cam === 1 && iot === 0) status = 3;
+                else if (cam === 1 && iot === 1) status = 4;
+                else if (cam === 1 && iot === 2) status = 5;
+                else if (cam === 2 && iot === 0) status = 6;
+                else if (cam === 2 && iot === 1) status = 7;
+                else if (cam === 2 && iot === 2) status = 8;
 
-
-                // Simpan hanya jika semua nilai valid
                 if (status !== null) {
-                    const escapedDeskripsi = connection.escape(deskripsi); // string -> escape
-                    const escapedWarna = connection.escape(warna);         // string -> escape
+                    const warnaMap = {
+                        0: "bg-green-400",
+                        1: "bg-yellow-400",
+                        2: "bg-green-400",
+                        3: "bg-yellow-400",
+                        4: "bg-red-400",
+                        5: "bg-red-400",
+                        6: "bg-green-400",
+                        7: "bg-red-400",
+                        8: "bg-gray-400"
+                    };
+
+                    const statusDescriptions = {
+                        0: "cam & iot check",
+                        1: "Cam check",
+                        2: "Cam check",
+                        3: "IoT check",
+                        4: "cam & iot not check",
+                        5: "Cam check",
+                        6: "IoT check",
+                        7: "IoT check",
+                        8: "Cam & IoT not connected"
+                    };
+
+                    const warna = connection.escape(warnaMap[status]);
+                    const deskripsiText = statusDescriptions[status] || `Status ${status}`;
+                    const deskripsi = connection.escape(deskripsiText);
+
                     const insertQuery = `
-                    INSERT INTO komparasi (id, slot, status, warna, deskripsi, updated_at)
-                    VALUES (${iotRow.id}, ${iotRow.id}, ${status}, ${escapedWarna}, ${escapedDeskripsi}, NOW())
-                    ON DUPLICATE KEY UPDATE 
-                        status = VALUES(status),
-                        warna = VALUES(warna),
-                        deskripsi = VALUES(deskripsi),
-                        updated_at = NOW()
-                `;
+                        INSERT INTO komparasi (id, slot, status, warna, deskripsi, updated_at)
+                        VALUES (${iotRow.id}, ${iotRow.id}, ${status}, ${warna}, ${deskripsi}, NOW())
+                        ON DUPLICATE KEY UPDATE 
+                            status = VALUES(status),
+                            warna = VALUES(warna),
+                            deskripsi = VALUES(deskripsi),
+                            updated_at = NOW()
+                    `;
 
                     connection.query(insertQuery, (err3) => {
-                        if (err3) console.error('Gagal update komparasi:', err3);
+                        if (err3) {
+                            logBuffer.push(`Gagal update komparasi ID ${iotRow.id}: ${err3.message}`);
+                        }
                     });
                 } else {
-                    console.warn(`Lewati id ${iotRow.id} karena status/deskripsi tidak valid.`);
+                    logBuffer.push(`Lewati id ${iotRow.id} karena kombinasi status tidak valid.`);
                 }
             });
+
+            logBuffer.push("Fungsi compareIotAndCam berhasil dijalankan.");
+            simpanLogAkhir();
         });
     });
+
+    function simpanLogAkhir() {
+        if (logBuffer.length === 0) return;
+
+        const values = logBuffer.map(msg => `(${connection.escape(msg)}, 1)`).join(", ");
+        const logQuery = `INSERT INTO logdata (keterangan,type) VALUES ${values}`;
+
+        connection.query(logQuery, (err) => {
+            if (err) {
+                console.error('Gagal menyimpan log akhir:', err);
+            } else {
+                console.log('Log compareIotAndCam disimpan.');
+            }
+        });
+    }
 }
 
 // Jalanin tiap 2 detik
@@ -132,8 +157,17 @@ function checkAndUpdateCamStatus() {
     const query = `SELECT updated_at FROM cam ORDER BY updated_at DESC LIMIT 1`;
 
     connection.query(query, (err, results) => {
-        if (err) return console.error('Gagal mengambil updated_at cam:', err);
-        if (results.length === 0) return console.warn('Tidak ada data di tabel cam.');
+        if (err) {
+            const errorLog = connection.escape("Gagal mengambil updated_at cam: " + err.message);
+            connection.query(`INSERT INTO logdata (keterangan,type) VALUES (${errorLog},2)`);
+            return console.error('Gagal mengambil updated_at cam:', err);
+        }
+
+        if (results.length === 0) {
+            const warningLog = connection.escape("Tidak ada data di tabel cam.");
+            connection.query(`INSERT INTO logdata (keterangan,type) VALUES (${warningLog},2)`);
+            return console.warn('Tidak ada data di tabel cam.');
+        }
 
         const latestUpdatedAt = new Date(results[0].updated_at);
         const now = new Date();
@@ -143,25 +177,42 @@ function checkAndUpdateCamStatus() {
             const updateQuery = `UPDATE cam SET status = 2`;
             connection.query(updateQuery, (err2) => {
                 if (err2) {
-                    console.error('Gagal update status cam ke 2:', err2);
+                    const errorUpdateLog = connection.escape("Gagal update status cam ke 2: " + err2.message);
+                    connection.query(`INSERT INTO logdata (keterangan,type) VALUES (${errorUpdateLog},2)`);
+                    return console.error('Gagal update status cam ke 2:', err2);
                 } else {
-                    console.log('Status semua data di iot diupdate ke 2 karena tidak update lebih dari 5 menit.');
+                    const successLog = connection.escape("Status semua CAM diupdate ke 2 karena tidak update lebih dari 5 menit.");
+                    connection.query(`INSERT INTO logdata (keterangan,type) VALUES (${successLog},2)`);
+                    console.log('Status semua CAM diupdate ke 2 karena tidak update lebih dari 5 menit.');
                 }
             });
         } else {
+            const activeLog = connection.escape("CAM masih aktif, tidak perlu update.");
+            connection.query(`INSERT INTO logdata (keterangan,type) VALUES (${activeLog},2)`);
             console.log('CAM masih aktif, tidak perlu update.');
         }
     });
 }
 
+
 setInterval(checkAndUpdateCamStatus, 5 * 60 * 1000); // 5 menit
+
 
 function checkAndUpdateIotStatus() {
     const query = `SELECT updated_at FROM iot ORDER BY updated_at DESC LIMIT 1`;
 
     connection.query(query, (err, results) => {
-        if (err) return console.error('Gagal mengambil updated_at iot:', err);
-        if (results.length === 0) return console.warn('Tidak ada data di tabel iot.');
+        if (err) {
+            const errorLog = connection.escape("Gagal mengambil updated_at iot: " + err.message);
+            connection.query(`INSERT INTO logdata (keterangan,type)  VALUES (${errorLog})`);
+            return console.error('Gagal mengambil updated_at iot:', err);
+        }
+
+        if (results.length === 0) {
+            const warningLog = connection.escape("Tidak ada data di tabel iot.");
+            connection.query(`INSERT INTO logdata (keterangan,type)  VALUES (${warningLog})`);
+            return console.warn('Tidak ada data di tabel iot.');
+        }
 
         const latestUpdatedAt = new Date(results[0].updated_at);
         const now = new Date();
@@ -171,16 +222,24 @@ function checkAndUpdateIotStatus() {
             const updateQuery = `UPDATE iot SET status = 2`;
             connection.query(updateQuery, (err2) => {
                 if (err2) {
-                    console.error('Gagal update status iot ke 2:', err2);
+                    const errorUpdateLog = connection.escape("Gagal update status iot ke 2: " + err2.message);
+                    connection.query(`INSERT INTO logdata (keterangan,type)  VALUES (${errorUpdateLog},3)`);
+                    return console.error('Gagal update status iot ke 2:', err2);
                 } else {
-                    console.log('Status semua data di iot diupdate ke 2 karena tidak update lebih dari 5 menit.');
+                    const successLog = connection.escape("Status semua IOT diupdate ke 2 karena tidak update lebih dari 5 menit.");
+                    connection.query(`INSERT INTO logdata (keterangan,type)  VALUES (${successLog},3)`);
+                    console.log('Status semua IOT diupdate ke 2 karena tidak update lebih dari 5 menit.');
                 }
             });
         } else {
+            const activeLog = connection.escape("IOT masih aktif, tidak perlu update.");
+            connection.query(`INSERT INTO logdata (keterangan,type)  VALUES (${activeLog},3)`);
             console.log('IOT masih aktif, tidak perlu update.');
         }
     });
 }
+
+
 setInterval(checkAndUpdateIotStatus, 5 * 60 * 1000); // 5 menit
 
 // Endpoint untuk mengambil data dari tabel "iot"

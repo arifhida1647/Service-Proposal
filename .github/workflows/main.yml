@@ -5,7 +5,7 @@ on:
 name:  Deploy to production
 jobs:
   web-deploy:
-    name:  Deployed On Production Serve at ${{ github.event.head_commit.timestamp }}
+    name:  Deployed On Production Server at ${{ github.event.head_commit.timestamp }}
     runs-on: ubuntu-latest
     steps:
     - name: 🚚 Get latest code

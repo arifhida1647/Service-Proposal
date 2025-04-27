@@ -1,7 +1,13 @@
 name: Deploy to production
 
 on:
-  workflow_dispatch:  # <-- ini yang bikin bisa manual jalanin
+  workflow_dispatch:
+    inputs:
+      targetServer:
+        description: 'Server tujuan production
+        required: true
+        default: 'production'
+
 
 jobs:
   web-deploy:

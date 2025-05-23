@@ -423,8 +423,6 @@ app.post('/update-status-iot-s1', authenticateToken, async (req, res) => {
 });
 // Endpoint untuk memperbarui status
 
-
-
 app.post('/update-status-cam', authenticateToken, async (req, res) => {
     const { statusArray } = req.body;
 
@@ -462,9 +460,28 @@ app.post('/update-status-cam', authenticateToken, async (req, res) => {
         res.status(200).json({ message: 'Status berhasil diperbarui.' });
     });
 });
+
+app.post('/update-link-cam', authenticateToken, async (req, res) => {
+    const { link } = req.body;
+
+    if (!link) {
+        return res.status(400).json({ error: 'Link tidak boleh kosong.' });
+    }
+
+    const query = 'INSERT INTO links (link) VALUES (?)';
+
+    connection.query(query, [link], (err, results) => {
+        if (err) {
+            console.error('Error inserting link:', err);
+            return res.status(500).json({ error: 'Gagal menyimpan link.' });
+        }
+        res.status(200).json({ message: 'Link berhasil disimpan.' });
+    });
+});
+
 // Mulai server// Contoh endpoint
 app.get("/", (req, res) => {
-    res.send("Hello from Express on Vercel!");
+    res.send("API Parking System");
 });
 
 
